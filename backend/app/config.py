@@ -1,14 +1,14 @@
 """
-config.py — central settings loaded from environment variables
+config.py -- central settings loaded from environment variables
 """
 from pydantic_settings import BaseSettings
 from pathlib import Path
 
 
 class Settings(BaseSettings):
-    openai_api_key: str
-    openai_model: str = "gpt-3.5-turbo"
-    openai_embedding_model: str = "text-embedding-3-small"
+    groq_api_key: str
+    groq_model: str = "llama3-8b-8192"
+    embedding_model: str = "all-MiniLM-L6-v2"
 
     # FAISS index lives inside the container/server filesystem
     faiss_index_path: str = str(Path(__file__).parent.parent / "faiss_store")
