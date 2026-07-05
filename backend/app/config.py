@@ -8,13 +8,13 @@ from pathlib import Path
 class Settings(BaseSettings):
     groq_api_key: str
     groq_model: str = "llama3-8b-8192"
-    embedding_model: str = "all-MiniLM-L6-v2"
+    huggingface_api_key: str = ""
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
-    # FAISS index lives inside the container/server filesystem
     faiss_index_path: str = str(Path(__file__).parent.parent / "faiss_store")
 
-    chunk_size: int = 1000
-    chunk_overlap: int = 150
+    chunk_size: int = 800
+    chunk_overlap: int = 100
     retriever_k: int = 4
 
     class Config:
