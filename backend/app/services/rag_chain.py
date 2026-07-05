@@ -1,7 +1,7 @@
 """
-rag_chain.py — LangChain LCEL RAG chain with streaming support
+rag_chain.py -- LangChain LCEL RAG chain with streaming support (Groq)
 """
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
@@ -9,8 +9,7 @@ from app.config import settings
 from app.services.vector_store import get_retriever
 
 
-SYSTEM_PROMPT = """You are a helpful assistant that answers questions strictly based on \
-the provided context from uploaded PDF documents.
+SYSTEM_PROMPT = """You are a helpful assistant that answers questions strictly based on the provided context from uploaded PDF documents.
 
 Rules:
 - Answer only from the context below. Do not use outside knowledge.
@@ -36,9 +35,9 @@ def _format_docs(docs) -> str:
 
 
 def build_chain():
-    llm = ChatOpenAI(
-        model=settings.openai_model,
-        openai_api_key=settings.openai_api_key,
+    llm = ChatGroq(
+        model=settings.groq_model,
+        groq_api_key=settings.groq_api_key,
         temperature=0,
         streaming=True,
     )
@@ -65,9 +64,9 @@ async def stream_answer(question: str):
 
 def get_answer_with_sources(question: str) -> dict:
     """Return full answer + source documents (non-streaming)."""
-    llm = ChatOpenAI(
-        model=settings.openai_model,
-        openai_api_key=settings.openai_api_key,
+    llm = ChatGroq(
+        model=settings.groq_model,
+        groq_api_key=settings.groq_api_key,
         temperature=0,
     )
     retriever = get_retriever()
