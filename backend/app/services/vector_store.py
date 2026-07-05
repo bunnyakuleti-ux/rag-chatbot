@@ -1,56 +1,86 @@
 """
-vector_store.py -- FAISS index management (load / save / retrieve)
+vector_store.py -- Lightweight in-memory vector store using numpy dot-product search.
+Uses HuggingFace Inference API for embeddings (no local model, zero RAM overhead).
 """
+from __future__ import annotations
+import json
+import math
 from pathlib import Path
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from typing import List, Dict, Any
+
+import httpx
+import numpy as np
+
 from app.config import settings
 
-_embeddings: HuggingFaceEmbeddings | None = None
-_index: FAISS | None = None
+# In-memory store: list of {"embedding": [...], "content": str, "metadata": {...}}
+_store: List[Dict[str, Any]] = []
 
 
-def _get_embeddings() -> HuggingFaceEmbeddings:
-    global _embeddings
-    if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(
-            model_name=settings.embedding_model,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        )
-    return _embeddings
+def _embed(texts: List[str]) -> List[List[float]]:
+    """Call HuggingFace Inference API to embed a list of texts."""
+    url = f"https://api-inference.huggingface.co/models/{settings.embedding_model}"
+    headers = {"Authorization": f"Bearer {settings.huggingface_api_key}"}
+    response = httpx.post(url, json={"inputs": texts}, headers=headers, timeout=60)
+    response.raise_for_status()
+    return response.json()
 
 
-def get_index() -> FAISS | None:
-    """Return the loaded FAISS index, or None if not yet built."""
-    global _index
-    index_file = Path(settings.faiss_index_path) / "index.faiss"
-    if _index is None and index_file.exists():
-        _index = FAISS.load_local(
-            settings.faiss_index_path,
-            _get_embeddings(),
-            allow_dangerous_deserialization=True,
-        )
-    return _index
+def _cosine(a: List[float], b: List[float]) -> float:
+    va = np.array(a, dtype=np.float32)
+    vb = np.array(b, dtype=np.float32)
+    denom = np.linalg.norm(va) * np.linalg.norm(vb)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(va, vb) / denom)
 
 
 def add_documents(docs: list) -> int:
-    """Add LangChain Document objects to FAISS, persist to disk."""
-    global _index
-    emb = _get_embeddings()
-    Path(settings.faiss_index_path).mkdir(parents=True, exist_ok=True)
-
-    if _index is None:
-        _index = FAISS.from_documents(docs, emb)
-    else:
-        _index.add_documents(docs)
-
-    _index.save_local(settings.faiss_index_path)
+    """Embed and store LangChain Document objects."""
+    global _store
+    texts = [d.page_content for d in docs]
+    embeddings = _embed(texts)
+    for doc, emb in zip(docs, embeddings):
+        _store.append({
+            "embedding": emb,
+            "content": doc.page_content,
+            "metadata": doc.metadata,
+        })
     return len(docs)
 
 
-def get_retriever():
-    idx = get_index()
-    if idx is None:
+def similarity_search(query: str, k: int = 4) -> list:
+    """Return top-k most similar stored chunks for a query string."""
+    if not _store:
         raise ValueError("No documents have been ingested yet. Upload a PDF first.")
-    return idx.as_retriever(search_kwargs={"k": settings.retriever_k})
+    q_emb = _embed([query])[0]
+    scored = [
+        (i, _cosine(q_emb, item["embedding"]))
+        for i, item in enumerate(_store)
+    ]
+    scored.sort(key=lambda x: x[1], reverse=True)
+    top = scored[:k]
+
+    # Return simple objects with page_content and metadata attributes
+    class _Doc:
+        def __init__(self, content, metadata):
+            self.page_content = content
+            self.metadata = metadata
+
+    return [_Doc(_store[i]["content"], _store[i]["metadata"]) for i, _ in top]
+
+
+def get_retriever():
+    """Returns a callable retriever compatible with LangChain LCEL."""
+    if not _store:
+        raise ValueError("No documents have been ingested yet. Upload a PDF first.")
+
+    class _Retriever:
+        def invoke(self, query: str):
+            return similarity_search(query, k=settings.retriever_k)
+
+        def __or__(self, other):
+            from langchain_core.runnables import RunnableLambda
+            return RunnableLambda(lambda q: other(self.invoke(q)))
+
+    return _Retriever()
