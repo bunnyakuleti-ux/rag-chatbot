@@ -1,86 +1,74 @@
 """
-vector_store.py -- Lightweight in-memory vector store using numpy dot-product search.
-Uses HuggingFace Inference API for embeddings (no local model, zero RAM overhead).
+vector_store.py -- Pure Python TF-IDF retrieval. Zero deps. ~30MB RAM.
 """
 from __future__ import annotations
-import json
-import math
-from pathlib import Path
+import math, re
+from collections import Counter
 from typing import List, Dict, Any
 
-import httpx
-import numpy as np
-
-from app.config import settings
-
-# In-memory store: list of {"embedding": [...], "content": str, "metadata": {...}}
-_store: List[Dict[str, Any]] = []
+_docs: List[Dict[str, Any]] = []
+_tfidf_matrix: List[Dict[str, float]] = []
+_idf: Dict[str, float] = {}
 
 
-def _embed(texts: List[str]) -> List[List[float]]:
-    """Call HuggingFace Inference API to embed a list of texts."""
-    url = f"https://api-inference.huggingface.co/models/{settings.embedding_model}"
-    headers = {"Authorization": f"Bearer {settings.huggingface_api_key}"}
-    response = httpx.post(url, json={"inputs": texts}, headers=headers, timeout=60)
-    response.raise_for_status()
-    return response.json()
+def _tokenize(text: str) -> List[str]:
+    return re.findall(r"[a-z0-9]+", text.lower())
 
 
-def _cosine(a: List[float], b: List[float]) -> float:
-    va = np.array(a, dtype=np.float32)
-    vb = np.array(b, dtype=np.float32)
-    denom = np.linalg.norm(va) * np.linalg.norm(vb)
-    if denom == 0:
-        return 0.0
-    return float(np.dot(va, vb) / denom)
+def _rebuild_index():
+    global _tfidf_matrix, _idf
+    if not _docs:
+        return
+    N = len(_docs)
+    df: Dict[str, int] = {}
+    tokenized = [_tokenize(d["content"]) for d in _docs]
+    for tokens in tokenized:
+        for t in set(tokens):
+            df[t] = df.get(t, 0) + 1
+    _idf = {t: math.log(N / (1 + freq)) for t, freq in df.items()}
+    _tfidf_matrix = []
+    for tokens in tokenized:
+        tf = Counter(tokens)
+        total = len(tokens) or 1
+        _tfidf_matrix.append({t: (c / total) * _idf.get(t, 0) for t, c in tf.items()})
+
+
+def _cosine(a: Dict[str, float], b: Dict[str, float]) -> float:
+    common = set(a) & set(b)
+    dot = sum(a[k] * b[k] for k in common)
+    na  = math.sqrt(sum(v * v for v in a.values()))
+    nb  = math.sqrt(sum(v * v for v in b.values()))
+    return dot / (na * nb) if na and nb else 0.0
 
 
 def add_documents(docs: list) -> int:
-    """Embed and store LangChain Document objects."""
-    global _store
-    texts = [d.page_content for d in docs]
-    embeddings = _embed(texts)
-    for doc, emb in zip(docs, embeddings):
-        _store.append({
-            "embedding": emb,
-            "content": doc.page_content,
-            "metadata": doc.metadata,
-        })
+    for doc in docs:
+        _docs.append({"content": doc.page_content, "metadata": doc.metadata})
+    _rebuild_index()
     return len(docs)
 
 
 def similarity_search(query: str, k: int = 4) -> list:
-    """Return top-k most similar stored chunks for a query string."""
-    if not _store:
-        raise ValueError("No documents have been ingested yet. Upload a PDF first.")
-    q_emb = _embed([query])[0]
-    scored = [
-        (i, _cosine(q_emb, item["embedding"]))
-        for i, item in enumerate(_store)
-    ]
-    scored.sort(key=lambda x: x[1], reverse=True)
-    top = scored[:k]
+    if not _docs:
+        raise ValueError("No documents ingested yet. Upload a PDF first.")
+    q_vec = {}
+    tf = Counter(_tokenize(query))
+    total = len(tf) or 1
+    q_vec = {t: (c / total) * _idf.get(t, 0) for t, c in tf.items()}
+    scored = sorted(enumerate(_tfidf_matrix), key=lambda x: _cosine(q_vec, x[1]), reverse=True)
 
-    # Return simple objects with page_content and metadata attributes
     class _Doc:
         def __init__(self, content, metadata):
             self.page_content = content
             self.metadata = metadata
 
-    return [_Doc(_store[i]["content"], _store[i]["metadata"]) for i, _ in top]
+    return [_Doc(_docs[i]["content"], _docs[i]["metadata"]) for i, _ in scored[:k]]
 
 
 def get_retriever():
-    """Returns a callable retriever compatible with LangChain LCEL."""
-    if not _store:
-        raise ValueError("No documents have been ingested yet. Upload a PDF first.")
+    if not _docs:
+        raise ValueError("No documents ingested yet. Upload a PDF first.")
 
-    class _Retriever:
-        def invoke(self, query: str):
-            return similarity_search(query, k=settings.retriever_k)
-
-        def __or__(self, other):
-            from langchain_core.runnables import RunnableLambda
-            return RunnableLambda(lambda q: other(self.invoke(q)))
-
-    return _Retriever()
+    class _R:
+        def invoke(self, q): return similarity_search(q, k=4)
+    return _R()
