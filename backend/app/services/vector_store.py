@@ -1,22 +1,22 @@
 """
-vector_store.py — FAISS index management (load / save / retrieve)
+vector_store.py -- FAISS index management (load / save / retrieve)
 """
-import os
 from pathlib import Path
 from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from app.config import settings
 
-_embeddings: OpenAIEmbeddings | None = None
+_embeddings: HuggingFaceEmbeddings | None = None
 _index: FAISS | None = None
 
 
-def _get_embeddings() -> OpenAIEmbeddings:
+def _get_embeddings() -> HuggingFaceEmbeddings:
     global _embeddings
     if _embeddings is None:
-        _embeddings = OpenAIEmbeddings(
-            model=settings.openai_embedding_model,
-            openai_api_key=settings.openai_api_key,
+        _embeddings = HuggingFaceEmbeddings(
+            model_name=settings.embedding_model,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
         )
     return _embeddings
 
