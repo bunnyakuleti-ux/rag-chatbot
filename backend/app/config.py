@@ -7,7 +7,7 @@ from pathlib import Path
 
 class Settings(BaseSettings):
     groq_api_key: str
-    groq_model: str = "llama3-70b-8192"
+    groq_model: str = "llama-3.3-70b-versatile"
     faiss_index_path: str = str(Path(__file__).parent.parent / "faiss_store")
     chunk_size: int = 800
     chunk_overlap: int = 100
