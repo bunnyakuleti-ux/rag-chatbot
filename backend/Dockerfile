@@ -3,7 +3,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps for faiss-cpu
+# System deps for faiss-cpu and sentence-transformers
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# FAISS store volume — mount this to persist the index
+# FAISS store volume -- mount this to persist the index
 RUN mkdir -p /app/faiss_store
 
 EXPOSE 8000
