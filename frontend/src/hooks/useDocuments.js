@@ -1,50 +1,37 @@
-/**
- * React Query hooks for document management.
- */
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { deleteDocument, getDocuments, uploadDocument } from '../services/api'
+import { deleteDocument, getDocuments, getSessionDocs, uploadDocument } from '../services/api'
 
-const DOCS_KEY = ['documents']
-
-/** Fetch all documents. */
-export function useDocuments() {
+export function useDocuments(sessionId = null) {
   return useQuery({
-    queryKey: DOCS_KEY,
-    queryFn: getDocuments,
+    queryKey: sessionId ? ['documents', sessionId] : ['documents'],
+    queryFn: () => sessionId ? getSessionDocs(sessionId) : getDocuments(),
     select: (data) => data.documents ?? [],
   })
 }
 
-/** Upload a PDF. */
-export function useUploadDocument() {
+export function useUploadDocument(sessionId = null) {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: ({ file, onProgress }) => uploadDocument(file, onProgress),
+    mutationFn: ({ file, onProgress }) => uploadDocument(file, onProgress, sessionId),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: DOCS_KEY })
-      toast.success(`"${data.filename}" uploaded successfully (${data.chunk_count} chunks)`)
+      queryClient.invalidateQueries({ queryKey: sessionId ? ['documents', sessionId] : ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['sessions'] })
+      toast.success(`"${data.filename}" uploaded (${data.chunk_count} chunks)`)
     },
-    onError: (err) => {
-      toast.error(`Upload failed: ${err.message}`)
-    },
+    onError: (err) => toast.error(`Upload failed: ${err.message}`),
   })
 }
 
-/** Delete a document. */
-export function useDeleteDocument() {
+export function useDeleteDocument(sessionId = null) {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: (docId) => deleteDocument(docId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: DOCS_KEY })
+      queryClient.invalidateQueries({ queryKey: sessionId ? ['documents', sessionId] : ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['sessions'] })
       toast.success('Document deleted')
     },
-    onError: (err) => {
-      toast.error(`Delete failed: ${err.message}`)
-    },
+    onError: (err) => toast.error(`Delete failed: ${err.message}`),
   })
 }
