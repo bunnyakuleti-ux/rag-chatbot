@@ -39,6 +39,7 @@ def create_document(
     file_size: int,
     page_count: int,
     chunk_count: int,
+    session_id: Optional[str] = None,
 ) -> DocumentMetadata:
     """Create and persist a new document record."""
     doc_id = str(uuid.uuid4())
@@ -50,6 +51,7 @@ def create_document(
         chunk_count=chunk_count,
         uploaded_at=datetime.now(tz=timezone.utc),
         status="ready",
+        session_id=session_id,
     )
     store = _load_store()
     store[doc_id] = doc.model_dump()

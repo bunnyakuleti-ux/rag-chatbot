@@ -1,17 +1,22 @@
-/**
- * Root application component.
- * Layout: fixed header, two-column main (sidebar + chat), status bar.
- * On mobile: sidebar accessible via a slide-in drawer toggled from the header.
- */
-
 import { useState } from 'react'
 import Header from './components/Header'
 import DocumentPanel from './components/DocumentPanel'
 import ChatWindow from './components/ChatWindow'
+import SessionPanel from './components/SessionPanel'
 import StatusBar from './components/StatusBar'
+import { useSessions } from './hooks/useSessions'
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeSessionId, setActiveSessionId] = useState(null)
+  const { data: sessions = [] } = useSessions()
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
+
+  const handleSelectSession = (id) => {
+    setActiveSessionId(id)
+    setSidebarOpen(false)   // close drawer on mobile after selection
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
@@ -27,25 +32,34 @@ export default function App() {
           />
         )}
 
-        {/* Sidebar – document management */}
+        {/* Sidebar */}
         <aside
           className={[
             'flex flex-col w-72 xl:w-80 border-r border-gray-200 dark:border-gray-700',
-            'bg-white dark:bg-gray-900 p-4 overflow-y-auto shrink-0 z-30',
-            // Desktop: always visible
+            'bg-white dark:bg-gray-900 p-4 overflow-y-auto shrink-0 z-30 gap-4',
             'md:flex md:static',
-            // Mobile: slide-in drawer
-            sidebarOpen
-              ? 'fixed inset-y-0 left-0 flex'
-              : 'hidden',
+            sidebarOpen ? 'fixed inset-y-0 left-0 flex' : 'hidden',
           ].join(' ')}
         >
-          <DocumentPanel />
+          {/* Sessions */}
+          <SessionPanel
+            activeSessionId={activeSessionId}
+            onSelectSession={handleSelectSession}
+          />
+
+          {/* Divider */}
+          <div className="border-t border-gray-200 dark:border-gray-700" />
+
+          {/* Documents for active session */}
+          <DocumentPanel sessionId={activeSessionId} />
         </aside>
 
-        {/* Chat area */}
+        {/* Chat */}
         <section className="flex flex-col flex-1 min-w-0 bg-gray-50 dark:bg-gray-950">
-          <ChatWindow />
+          <ChatWindow
+            sessionId={activeSessionId}
+            sessionName={activeSession?.name ?? null}
+          />
         </section>
       </main>
 

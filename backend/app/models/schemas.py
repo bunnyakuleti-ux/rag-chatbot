@@ -1,6 +1,5 @@
 """
 Pydantic schemas for request/response validation.
-All API models are defined here for clean separation of concerns.
 """
 
 from __future__ import annotations
@@ -11,37 +10,55 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
+# Session models
+# ---------------------------------------------------------------------------
+
+class SessionCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+
+
+class SessionMetadata(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+    document_ids: List[str] = []
+
+
+class SessionListResponse(BaseModel):
+    sessions: List[SessionMetadata]
+    total: int
+
+
+# ---------------------------------------------------------------------------
 # Document models
 # ---------------------------------------------------------------------------
 
 class DocumentMetadata(BaseModel):
-    """Metadata stored alongside each document."""
     id: str
     filename: str
-    file_size: int  # bytes
+    file_size: int
     page_count: int
     chunk_count: int
     uploaded_at: datetime
-    status: str = "ready"  # ready | processing | error
+    status: str = "ready"
+    session_id: Optional[str] = None
 
 
 class DocumentListResponse(BaseModel):
-    """Response payload for GET /documents."""
     documents: List[DocumentMetadata]
     total: int
 
 
 class UploadResponse(BaseModel):
-    """Response payload for POST /upload."""
     document_id: str
     filename: str
     page_count: int
     chunk_count: int
+    session_id: Optional[str] = None
     message: str = "Document processed successfully"
 
 
 class DeleteResponse(BaseModel):
-    """Response payload for DELETE /documents/{id}."""
     document_id: str
     message: str = "Document deleted successfully"
 
@@ -51,13 +68,11 @@ class DeleteResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ChatMessage(BaseModel):
-    """A single message in the conversation history."""
     role: str = Field(..., pattern="^(user|assistant)$")
     content: str
 
 
 class SourceChunk(BaseModel):
-    """A retrieved context chunk returned alongside the answer."""
     document_id: str
     filename: str
     page: Optional[int] = None
@@ -66,15 +81,14 @@ class SourceChunk(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    """Request payload for POST /chat."""
     query: str = Field(..., min_length=1, max_length=4096)
     conversation_history: List[ChatMessage] = Field(default_factory=list)
-    document_ids: Optional[List[str]] = None  # None = search all documents
+    document_ids: Optional[List[str]] = None
+    session_id: Optional[str] = None   # if set, auto-resolve document_ids from session
     top_k: int = Field(default=5, ge=1, le=20)
 
 
 class ChatResponse(BaseModel):
-    """Response payload for POST /chat."""
     answer: str
     sources: List[SourceChunk]
     conversation_id: Optional[str] = None
@@ -85,9 +99,8 @@ class ChatResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class HealthResponse(BaseModel):
-    """Response payload for GET /health."""
     status: str
     version: str
-    vector_store: str  # "pinecone" | "faiss"
+    vector_store: str
     openai_connected: bool
     document_count: int

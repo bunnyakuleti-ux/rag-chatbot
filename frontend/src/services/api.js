@@ -1,22 +1,15 @@
-/**
- * API service layer.
- * All requests go through axios with a base URL from env variables.
- * During local dev the Vite proxy forwards /api → localhost:8000.
- */
-
 import axios from 'axios'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
 
 const api = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
-  timeout: 120_000, // 2 min for LLM calls
+  timeout: 120_000,
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Response interceptor for unified error handling
 api.interceptors.response.use(
-  (response) => response,
+  (r) => r,
   (error) => {
     const message =
       error.response?.data?.detail ||
@@ -28,51 +21,40 @@ api.interceptors.response.use(
 )
 
 // ---------------------------------------------------------------------------
-// Document APIs
+// Sessions
 // ---------------------------------------------------------------------------
+export const createSession  = async (name) => { const { data } = await api.post('/sessions', { name }); return data }
+export const getSessions    = async () => { const { data } = await api.get('/sessions'); return data }
+export const deleteSession  = async (id) => { const { data } = await api.delete(`/sessions/${id}`); return data }
+export const getSessionDocs = async (id) => { const { data } = await api.get(`/sessions/${id}/documents`); return data }
 
-/** Upload a PDF file and process it. */
-export const uploadDocument = async (file, onProgress) => {
+// ---------------------------------------------------------------------------
+// Documents
+// ---------------------------------------------------------------------------
+export const uploadDocument = async (file, onProgress, sessionId = null) => {
   const formData = new FormData()
   formData.append('file', file)
-
-  const { data } = await api.post('/upload', formData, {
+  const url = sessionId ? `/sessions/${sessionId}/upload` : '/upload'
+  const { data } = await api.post(url, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: (evt) => {
-      if (onProgress && evt.total) {
-        onProgress(Math.round((evt.loaded * 100) / evt.total))
-      }
+      if (onProgress && evt.total) onProgress(Math.round((evt.loaded * 100) / evt.total))
     },
   })
   return data
 }
 
-/** Fetch the list of all uploaded documents. */
-export const getDocuments = async () => {
-  const { data } = await api.get('/documents')
-  return data
-}
-
-/** Delete a document by ID. */
-export const deleteDocument = async (docId) => {
-  const { data } = await api.delete(`/documents/${docId}`)
-  return data
-}
+export const getDocuments  = async () => { const { data } = await api.get('/documents'); return data }
+export const deleteDocument = async (docId) => { const { data } = await api.delete(`/documents/${docId}`); return data }
 
 // ---------------------------------------------------------------------------
-// Chat API
+// Chat
 // ---------------------------------------------------------------------------
-
-/**
- * Send a chat message to the RAG pipeline.
- * @param {string} query
- * @param {Array<{role: string, content: string}>} conversationHistory
- * @param {string[]|null} documentIds  - restrict search to specific docs
- */
-export const sendChatMessage = async (query, conversationHistory = [], documentIds = null) => {
+export const sendChatMessage = async (query, conversationHistory = [], sessionId = null, documentIds = null) => {
   const { data } = await api.post('/chat', {
     query,
     conversation_history: conversationHistory,
+    session_id: sessionId,
     document_ids: documentIds,
     top_k: 5,
   })
@@ -80,12 +62,8 @@ export const sendChatMessage = async (query, conversationHistory = [], documentI
 }
 
 // ---------------------------------------------------------------------------
-// Health check
+// Health
 // ---------------------------------------------------------------------------
-
-export const getHealth = async () => {
-  const { data } = await api.get('/health')
-  return data
-}
+export const getHealth = async () => { const { data } = await api.get('/health'); return data }
 
 export default api
