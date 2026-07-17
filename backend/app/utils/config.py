@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # ----------------------------------------------------------------
     # Local embeddings – sentence-transformers (no API, fully free)
     # ----------------------------------------------------------------
-    embedding_model: str = Field(default="all-MiniLM-L6-v2")
+    embedding_model: str = Field(default="all-MiniLM-L2-v2")
 
     # ----------------------------------------------------------------
     # App

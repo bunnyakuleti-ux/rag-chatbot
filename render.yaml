@@ -12,7 +12,7 @@ services:
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
       - key: EMBEDDING_MODEL
-        value: all-MiniLM-L6-v2
+        value: all-MiniLM-L2-v2
       - key: APP_ENV
         value: production
       - key: LOG_LEVEL
