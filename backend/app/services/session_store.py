@@ -15,7 +15,8 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-_SESSIONS_FILE = Path("./uploads/sessions.json")
+import os as _os
+_SESSIONS_FILE = Path(_os.environ.get("UPLOAD_DIR", "./uploads")) / "sessions.json"
 
 
 def _load() -> Dict[str, dict]:

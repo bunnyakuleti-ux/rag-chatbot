@@ -28,8 +28,14 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY app/ ./app/
 
+# Set writable directories for model cache and uploads
+ENV UPLOAD_DIR=/tmp/uploads
+ENV SENTENCE_TRANSFORMERS_HOME=/tmp/sentence_transformers
+ENV HF_HOME=/tmp/huggingface
+ENV TRANSFORMERS_CACHE=/tmp/huggingface
+
 # Create upload directory
-RUN mkdir -p /app/uploads
+RUN mkdir -p /tmp/uploads /tmp/sentence_transformers /tmp/huggingface
 
 # Non-root user for security
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
