@@ -37,16 +37,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"Vector store: FAISS (local, free)")
     logger.info(f"CORS origins: {settings.cors_origins}")
 
-    # Pre-load the embedding model at startup so the first request is fast.
-    # Without this the model loads on the first chat/upload request, causing
-    # a 20-40 s delay that triggers a 504 timeout.
-    logger.info("Pre-loading embedding model …")
-    try:
-        from app.services.vector_store import _get_embeddings
-        _get_embeddings()
-        logger.info("Embedding model ready ✓")
-    except Exception as e:
-        logger.warning(f"Could not pre-load embedding model: {e}")
+    # Don't pre-load embeddings on free tier — only 512MB RAM available.
+    # Model loads lazily on first request instead.
+    logger.info("Embedding model will load on first request (free tier memory saving)")
 
     yield  # application runs here
 

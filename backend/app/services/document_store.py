@@ -17,7 +17,8 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-_STORE_FILE = Path("./uploads/metadata.json")
+import os as _os
+_STORE_FILE = Path(_os.environ.get("UPLOAD_DIR", "./uploads")) / "metadata.json"
 
 
 def _load_store() -> Dict[str, dict]:

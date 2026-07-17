@@ -17,7 +17,10 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-_FAISS_DIR  = Path("./uploads/faiss_index")
+# Use /tmp on cloud (Render Docker), fall back to local for dev
+import os as _os
+_BASE = _os.environ.get("UPLOAD_DIR", "./uploads")
+_FAISS_DIR  = Path(_BASE) / "faiss_index"
 _EMBEDDINGS: Optional[HuggingFaceEmbeddings] = None   # lazy singleton
 
 
@@ -29,6 +32,16 @@ def _get_embeddings() -> HuggingFaceEmbeddings:
     """
     global _EMBEDDINGS
     if _EMBEDDINGS is None:
+        import os
+        # Ensure cache dirs exist and are writable (fixes Render/Docker deployment)
+        cache_dir = os.environ.get("SENTENCE_TRANSFORMERS_HOME", "/tmp/sentence_transformers")
+        hf_dir    = os.environ.get("HF_HOME", "/tmp/huggingface")
+        os.makedirs(cache_dir, exist_ok=True)
+        os.makedirs(hf_dir,    exist_ok=True)
+        os.environ["SENTENCE_TRANSFORMERS_HOME"] = cache_dir
+        os.environ["HF_HOME"]                    = hf_dir
+        os.environ["TRANSFORMERS_CACHE"]         = hf_dir
+
         settings = get_settings()
         logger.info(f"Loading embedding model: {settings.embedding_model}")
         _EMBEDDINGS = HuggingFaceEmbeddings(
