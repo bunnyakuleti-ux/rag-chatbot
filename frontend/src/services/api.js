@@ -4,7 +4,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || ''
 
 const api = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
-  timeout: 120_000,
+  timeout: 300_000, // 5 min — first request downloads embedding model on Render
   headers: { 'Content-Type': 'application/json' },
 })
 
