@@ -1,7 +1,7 @@
 # 📄 RAG Chatbot — Chat with your PDFs
 
 > Chat with PDF documents using LLM + semantic search  
-> Stack: **React (Next.js) · Tailwind · FastAPI · OpenAI · LangChain · FAISS**  
+> Stack: **React (Next.js) · Tailwind · FastAPI · Groq (Llama 3.3) · LangChain · TF-IDF**  
 > Deploy: **Vercel (frontend) + Docker on Render (backend)** — zero cost
 
 ---
@@ -12,10 +12,9 @@
 ┌────────────────────┐   upload PDF   ┌────────────────────────────┐
 │  Next.js Frontend  │ ─────────────> │  FastAPI Backend           │
 │  React + Tailwind  │                │  • PyPDFLoader → chunks    │
-│  Vercel            │ <────────────  │  • OpenAI embeddings       │
-└────────────────────┘  streamed ans  │  • FAISS vector store      │
-                                      │  • LangChain LCEL RAG chain│
-                                      │  • OpenAI GPT-3.5/4        │
+│  Vercel            │ <────────────  │  • TF-IDF vector store     │
+└────────────────────┘  streamed ans  │  • LangChain RAG chain     │
+                                      │  • Groq Llama 3.3 70B      │
                                       │  Docker on Render.com      │
                                       └────────────────────────────┘
 ```
@@ -30,7 +29,7 @@
 git clone https://github.com/harshabasava970-bot/rag-chatbot.git
 cd rag-chatbot
 cp .env.example .env
-# Edit .env — set OPENAI_API_KEY
+# Edit .env — set GROQ_API_KEY (get free at https://console.groq.com)
 ```
 
 ### 2. Run backend
@@ -41,7 +40,7 @@ python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate   # Mac/Linux
 pip install -r requirements.txt
-cp .env.example .env          # set OPENAI_API_KEY
+cp .env.example .env          # set GROQ_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -78,7 +77,7 @@ docker-compose up --build
    - **Root Directory**: `backend`
    - **Environment**: Docker
    - **Dockerfile path**: `./Dockerfile`
-4. Add environment variable: `OPENAI_API_KEY = sk-...`
+4. Add environment variable: `GROQ_API_KEY = gsk_...`
 5. Click **Deploy**
 6. Copy the URL e.g. `https://rag-chatbot-backend.onrender.com`
 

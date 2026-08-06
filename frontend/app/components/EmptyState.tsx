@@ -10,7 +10,7 @@ export default function EmptyState() {
       <div className="grid grid-cols-1 gap-3 w-full max-w-sm text-left">
         {[
           ['📤', 'Upload a PDF', 'Click the 📎 paperclip icon in the chat bar'],
-          ['⏳', 'Wait for indexing', 'The document is split and embedded into FAISS'],
+          ['⏳', 'Wait for indexing', 'The document is split and indexed with TF-IDF'],
           ['💬', 'Ask anything', 'Get answers grounded in your document content'],
           ['📎', 'View sources', 'Click "View sources" to see exact passages used'],
         ].map(([icon, title, desc]) => (

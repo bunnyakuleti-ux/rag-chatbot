@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'RAG Chatbot — Chat with your PDFs',
-  description: 'Upload PDF documents and ask questions using AI (LangChain + OpenAI + FAISS)',
+  description: 'Upload PDF documents and ask questions using AI (LangChain + Groq + TF-IDF)',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
