@@ -7,7 +7,7 @@ from app.routers import ingest, chat
 
 app = FastAPI(
     title="RAG Chatbot API",
-    description="Chat with PDFs using LangChain + FAISS + OpenAI",
+    description="Chat with PDFs using LangChain + TF-IDF + Groq Llama 3.3",
     version="1.0.0",
 )
 

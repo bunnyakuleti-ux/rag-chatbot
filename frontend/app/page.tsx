@@ -72,12 +72,12 @@ export default function Home() {
         );
         return;
       }
-
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let fullText = '';
       let sourcesJson = '';
       let inSources = false;
+      let hasError = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -85,15 +85,32 @@ export default function Home() {
 
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split('\n');
+        let nextLineIsError = false;
 
         for (const line of lines) {
+          if (line.startsWith('event: error')) {
+            nextLineIsError = true;
+            continue;
+          }
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') break;
+            if (nextLineIsError) {
+              hasError = true;
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === assistantId ? { ...m, content: `❌ ${data}`, streaming: false } : m
+                )
+              );
+              nextLineIsError = false;
+              break;
+            }
             if (data.startsWith('__SOURCES__')) {
               inSources = true;
               sourcesJson = data.replace('__SOURCES__', '');
-            } else if (!inSources) {
+            } else if (inSources) {
+              sourcesJson += data;
+            } else {
               fullText += data.replace(/\\n/g, '\n');
               setMessages(prev =>
                 prev.map(m =>
@@ -101,14 +118,11 @@ export default function Home() {
                 )
               );
             }
-          }
-          if (line.startsWith('event: error')) {
-            // next line has the error message
-          }
-          if (line.startsWith('data: ') && inSources) {
-            sourcesJson += line.slice(6);
+          } else {
+            nextLineIsError = false;
           }
         }
+        if (hasError) break;
       }
 
       // Parse sources if present
@@ -117,13 +131,15 @@ export default function Home() {
         try { sources = JSON.parse(sourcesJson); } catch {}
       }
 
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === assistantId
-            ? { ...m, content: fullText, streaming: false, sources }
-            : m
-        )
-      );
+      if (!hasError) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantId
+              ? { ...m, content: fullText, streaming: false, sources }
+              : m
+          )
+        );
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setMessages(prev =>
@@ -153,7 +169,7 @@ export default function Home() {
           <span className="text-2xl">📄</span>
           <div>
             <h1 className="text-lg font-bold text-[#F1F5F9] leading-tight">RAG Chatbot</h1>
-            <p className="text-xs text-[#94A3B8]">Chat with PDFs · LangChain + OpenAI + FAISS</p>
+            <p className="text-xs text-[#94A3B8]">Chat with PDFs · LangChain + Groq + TF-IDF</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
